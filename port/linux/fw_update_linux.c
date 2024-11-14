@@ -12,7 +12,7 @@
 
 // If set to 1, any received FW blocks will be written to file DOWNLOADED_FILE_NAME
 // This is mostly used for testing right now.
-#define ENABLE_DOWNLOAD_TO_FILE 0
+#define ENABLE_DOWNLOAD_TO_FILE 1
 #define DOWNLOADED_FILE_NAME "downloaded.bin"
 
 #define FW_UPDATE_RETURN_IF_NEGATIVE(expr) \
