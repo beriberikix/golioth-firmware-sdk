@@ -18,7 +18,7 @@ set(zcbor_srcs
 
 # Build Golioth SDK
 set(sdk_srcs
-    "${sdk_port}/linux//golioth_sys_linux.c"
+    "${sdk_port}/linux/golioth_sys_linux.c"
     "${sdk_port}/linux/fw_update_linux.c"
     "${sdk_port}/utils/hex.c"
     "${sdk_src}/golioth_status.c"
