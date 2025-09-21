@@ -19,7 +19,7 @@ git submodule update --init --recursive external/libcoap external/zcbor external
 cd examples/linux/buildroot
 
 # 2. Create output and cache directories
-mkdir -p output ccache
+mkdir -p output ccache dl
 
 # 3. Build with Docker (builds everything automatically with optimizations)
 # For Apple Silicon Macs (recommended):
@@ -32,6 +32,7 @@ docker run --rm \
   -v "$(pwd)/../../../..":/workspace \
   -v "$(pwd)/output":/output \
   -v "$(pwd)/ccache":/ccache \
+  -v "$(pwd)/dl":/dl \
   golioth-buildroot
 
 # For Intel Macs or x86_64 systems:
@@ -44,6 +45,7 @@ docker run --rm \
   -v "$(pwd)/../../../..":/workspace \
   -v "$(pwd)/output":/output \
   -v "$(pwd)/ccache":/ccache \
+  -v "$(pwd)/dl":/dl \
   golioth-buildroot
 
 # 4. Install QEMU on your host system
@@ -79,12 +81,14 @@ golioth_basics
 **Build Optimizations:**
 The Docker build includes several optimizations for maximum speed:
 - **External toolchains**: Uses pre-built Bootlin toolchains instead of compiling GCC from scratch
+- **Download cache (`dl/`)**: Caches all downloaded source files (Linux kernel, packages) to avoid re-downloading on subsequent builds
+- **Per-package directories**: Enables safer parallel builds and better dependency tracking for faster incremental rebuilds
 - **ccache**: Compiler cache that dramatically speeds up rebuilds (2GB cache)
 - **Parallel builds**: Uses all available CPU cores (capped at 8 for Docker stability)
-- **Persistent cache**: The `ccache` directory persists between builds for faster subsequent builds
+- **Persistent caches**: Both `ccache` and `dl` directories persist between builds for faster subsequent builds
 
-**First build**: 10-20 minutes (downloads toolchain and compiles packages only)
-**Subsequent builds**: 2-5 minutes (with ccache hits)
+**First build**: 10-20 minutes (downloads toolchain, Linux kernel ~100MB, and compiles packages)
+**Subsequent builds**: 2-5 minutes (no re-downloads, with ccache hits for compilation)
 
 **Docker Build Options:**
 - `BUILDROOT_VERSION`: Buildroot branch/tag (default: 2025.08.x)

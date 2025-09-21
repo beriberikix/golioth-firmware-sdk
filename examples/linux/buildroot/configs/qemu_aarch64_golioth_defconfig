@@ -1,6 +1,10 @@
 # Architecture - ARM64 for better performance on Apple Silicon
 BR2_aarch64=y
 
+# Build optimization - Cache downloads to speed up builds
+BR2_DL_DIR="$(BR2_EXTERNAL_GOLIOTH_BUILDROOT_PATH)/dl"
+BR2_PER_PACKAGE_DIRECTORIES=y
+
 # External Toolchain - Use Bootlin prebuilt toolchain for faster builds
 BR2_TOOLCHAIN_EXTERNAL=y
 BR2_TOOLCHAIN_EXTERNAL_BOOTLIN=y
