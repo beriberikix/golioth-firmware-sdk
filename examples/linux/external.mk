@@ -1,0 +1,1 @@
+include $(sort $(wildcard $(BR2_EXTERNAL_GOLIOTH_BUILDROOT_PATH)/package/*/*.mk))

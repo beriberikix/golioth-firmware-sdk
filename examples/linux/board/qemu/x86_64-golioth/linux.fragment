@@ -1,0 +1,7 @@
+# Additional kernel config for Golioth networking
+CONFIG_VIRTIO=y
+CONFIG_VIRTIO_PCI=y
+CONFIG_VIRTIO_NET=y
+CONFIG_NETDEVICES=y
+CONFIG_NET_CORE=y
+CONFIG_INET=y

@@ -1,0 +1,7 @@
+# Configure the loopback interface
+auto lo
+iface lo inet loopback
+
+# Configure eth0 with DHCP
+auto eth0
+iface eth0 inet dhcp

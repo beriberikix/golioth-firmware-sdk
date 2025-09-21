@@ -1,0 +1,2 @@
+source "$BR2_EXTERNAL_GOLIOTH_BUILDROOT_PATH/package/golioth-firmware-sdk/Config.in"
+source "$BR2_EXTERNAL_GOLIOTH_BUILDROOT_PATH/package/golioth-basics/Config.in"
