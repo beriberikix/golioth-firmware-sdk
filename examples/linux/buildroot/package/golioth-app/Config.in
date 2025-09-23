@@ -1,0 +1,12 @@
+config BR2_PACKAGE_GOLIOTH_APP
+	bool "golioth-app"
+	depends on BR2_PACKAGE_GOLIOTH_FIRMWARE_SDK
+	help
+	  Golioth application demonstrating core SDK features including
+	  LightDB State, Stream, Logging, OTA, RPC, and Settings.
+
+	  This self-contained application connects to the Golioth IoT cloud
+	  and demonstrates the full functionality of the Golioth Firmware SDK.
+
+comment "golioth-app needs golioth-firmware-sdk"
+	depends on !BR2_PACKAGE_GOLIOTH_FIRMWARE_SDK

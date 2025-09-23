@@ -1,6 +1,6 @@
 # Golioth Firmware SDK Buildroot Example
 
-This directory contains a complete Buildroot br2-external tree for building a Linux system with the Golioth Firmware SDK and the golioth_basics example application. The system is configured to run on QEMU with network support for easy testing and development.
+This directory contains a complete Buildroot br2-external tree for building a Linux system with the Golioth Firmware SDK and the golioth_app example application. The system is configured to run on QEMU with network support for easy testing and development.
 
 ## Quick Start
 
@@ -75,7 +75,7 @@ qemu-system-x86_64 \
 # 6. Inside QEMU, set your Golioth credentials and run
 export GOLIOTH_SAMPLE_PSK_ID="your-device-psk-id"
 export GOLIOTH_SAMPLE_PSK="your-device-psk"
-golioth_basics
+golioth_app
 ```
 
 **Build Optimizations:**
@@ -269,7 +269,7 @@ If you don't have Buildroot installed:
    - **What gets built**:
      - Linux kernel with VirtIO networking support
      - Golioth Firmware SDK library (using external toolchain)
-     - golioth_basics example application
+     - golioth_app example application
      - Root filesystem with network configuration
      - QEMU-compatible system images
 
@@ -373,16 +373,16 @@ Once the system boots in QEMU:
    export GOLIOTH_SAMPLE_PSK="super-secret-psk-key"
    ```
 
-5. **Run the Golioth basics example:**
+5. **Run the Golioth application:**
    ```bash
-   golioth_basics
+   golioth_app
    ```
 
    **Expected output:**
    ```
-   [00:00:02.123] <info> golioth_main: Connecting to Golioth...
-   [00:00:03.456] <info> golioth_main: Successfully connected to Golioth
-   [00:00:03.789] <info> golioth_basics: Sending LightDB State update...
+   [00:00:02.123] <info> main: Waiting for connection to Golioth...
+   [00:00:03.456] <info> golioth_app: Golioth client connected
+   [00:00:03.789] <info> golioth_app: Hello, Golioth!
    ```
 
 6. **Verify connectivity in Golioth Console:**
@@ -399,7 +399,7 @@ Once the system boots in QEMU:
 ### Packages Included
 
 - **golioth-firmware-sdk**: The core Golioth SDK library with all services enabled
-- **golioth-basics**: Example application demonstrating SDK features
+- **golioth-app**: Self-contained example application demonstrating SDK features (builds golioth_app binary)
 - **OpenSSL**: Required for TLS/DTLS connectivity
 - **Network tools**: wget, dhcpcd, openssh for connectivity and debugging
 - **Development tools**: strace, gdb for debugging
@@ -465,7 +465,7 @@ For faster development cycles:
 
 1. **Rebuild only changed packages:**
    ```bash
-   make golioth-basics-rebuild
+   make golioth-app-rebuild
    make golioth-firmware-sdk-rebuild
    ```
 
@@ -490,7 +490,7 @@ The system includes debugging tools:
 Example debugging session:
 ```bash
 # In QEMU
-gdb golioth_basics
+gdb golioth_app
 (gdb) run
 ```
 
@@ -516,7 +516,8 @@ buildroot/
 ├── external.mk               # Package makefile integration
 ├── package/
 │   ├── golioth-firmware-sdk/  # SDK package definition
-│   └── golioth-basics/        # Example app package definition
+│   └── golioth-app/           # Self-contained example app package
+│       └── src/               # Embedded source files (golioth_app.c, main.c, etc.)
 ├── configs/
 │   └── qemu_x86_64_golioth_defconfig  # System configuration
 ├── board/qemu/x86_64-golioth/
