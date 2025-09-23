@@ -5,7 +5,7 @@ BR2_aarch64=y
 BR2_DL_DIR="$(BR2_EXTERNAL_GOLIOTH_BUILDROOT_PATH)/dl"
 BR2_PER_PACKAGE_DIRECTORIES=y
 
-# External Toolchain - Use Bootlin prebuilt toolchain for faster builds
+# External Toolchain - Use Bootlin toolchain for better reliability
 BR2_TOOLCHAIN_EXTERNAL=y
 BR2_TOOLCHAIN_EXTERNAL_BOOTLIN=y
 BR2_TOOLCHAIN_EXTERNAL_BOOTLIN_AARCH64_GLIBC_STABLE=y
@@ -39,6 +39,9 @@ BR2_PACKAGE_DHCPCD=y
 BR2_PACKAGE_OPENSSH=y
 BR2_PACKAGE_WGET=y
 BR2_PACKAGE_CA_CERTIFICATES=y
+
+# Crypto library - Use mbedTLS instead of OpenSSL for ENGINE compatibility
+BR2_PACKAGE_MBEDTLS=y
 
 # Development tools
 BR2_PACKAGE_STRACE=y

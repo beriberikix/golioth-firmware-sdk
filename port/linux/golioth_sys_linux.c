@@ -8,7 +8,6 @@
 #include <golioth/golioth_status.h>
 #include <assert.h>
 #include <errno.h>
-#include <openssl/evp.h>
 #include <poll.h>
 #include <pthread.h>
 #include <semaphore.h>
@@ -18,6 +17,13 @@
 #include <time.h>
 #include <unistd.h>
 #include "../utils/hex.h"
+
+// Conditional crypto backend support
+#ifdef GOLIOTH_USE_MBEDTLS
+#include "mbedtls/sha256.h"
+#else
+#include <openssl/evp.h>
+#endif
 
 
 #define TAG "golioth_sys_linux"
@@ -385,6 +391,18 @@ void golioth_sys_thread_destroy(golioth_sys_thread_t thread)
 
 golioth_sys_sha256_t golioth_sys_sha256_create(void)
 {
+#ifdef GOLIOTH_USE_MBEDTLS
+    mbedtls_sha256_context *hash = golioth_sys_malloc(sizeof(mbedtls_sha256_context));
+    if (!hash)
+    {
+        return NULL;
+    }
+
+    mbedtls_sha256_init(hash);
+    mbedtls_sha256_starts(hash, 0);
+
+    return (golioth_sys_sha256_t) hash;
+#else
     EVP_MD_CTX *mdctx = EVP_MD_CTX_new();
     if (!mdctx)
     {
@@ -401,6 +419,7 @@ golioth_sys_sha256_t golioth_sys_sha256_create(void)
     };
 
     return (golioth_sys_sha256_t) mdctx;
+#endif
 }
 
 void golioth_sys_sha256_destroy(golioth_sys_sha256_t sha_ctx)
@@ -410,8 +429,12 @@ void golioth_sys_sha256_destroy(golioth_sys_sha256_t sha_ctx)
         return;
     }
 
+#ifdef GOLIOTH_USE_MBEDTLS
+    golioth_sys_free(sha_ctx);
+#else
     EVP_MD_CTX *mdctx = sha_ctx;
     EVP_MD_CTX_free(mdctx);
+#endif
 }
 
 enum golioth_status golioth_sys_sha256_update(golioth_sys_sha256_t sha_ctx,
@@ -423,14 +446,23 @@ enum golioth_status golioth_sys_sha256_update(golioth_sys_sha256_t sha_ctx,
         return GOLIOTH_ERR_NULL;
     }
 
+#ifdef GOLIOTH_USE_MBEDTLS
+    mbedtls_sha256_context *hash = sha_ctx;
+    int err = mbedtls_sha256_update(hash, input, len);
+    if (err)
+    {
+        return GOLIOTH_ERR_FAIL;
+    }
+    return GOLIOTH_OK;
+#else
     EVP_MD_CTX *mdctx = sha_ctx;
     int rc = EVP_DigestUpdate(mdctx, input, len);
     if (1 != rc)
     {
         return GOLIOTH_ERR_FAIL;
     }
-
     return GOLIOTH_OK;
+#endif
 }
 
 enum golioth_status golioth_sys_sha256_finish(golioth_sys_sha256_t sha_ctx, uint8_t *output)
@@ -440,14 +472,23 @@ enum golioth_status golioth_sys_sha256_finish(golioth_sys_sha256_t sha_ctx, uint
         return GOLIOTH_ERR_NULL;
     }
 
+#ifdef GOLIOTH_USE_MBEDTLS
+    mbedtls_sha256_context *hash = sha_ctx;
+    int err = mbedtls_sha256_finish(hash, output);
+    if (err)
+    {
+        return GOLIOTH_ERR_FAIL;
+    }
+    return GOLIOTH_OK;
+#else
     EVP_MD_CTX *mdctx = sha_ctx;
     int rc = EVP_DigestFinal_ex(mdctx, output, NULL);
     if (1 != rc)
     {
         return GOLIOTH_ERR_FAIL;
     }
-
     return GOLIOTH_OK;
+#endif
 }
 
 size_t golioth_sys_hex2bin(const char *hex, size_t hexlen, uint8_t *buf, size_t buflen)

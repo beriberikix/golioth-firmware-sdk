@@ -4,6 +4,8 @@
 // that dynamically loads the app as a .so.
 
 #include <golioth/fw_update.h>
+#include <stdio.h>   // FILE, fopen, fclose
+#include <stdlib.h>  // malloc, free
 #include <unistd.h>  // readlink
 #include <fcntl.h>   // open
 #include <string.h>  // memcpy
