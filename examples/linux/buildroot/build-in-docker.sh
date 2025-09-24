@@ -93,7 +93,9 @@ else
     echo "    -nographic"
 fi
 echo ""
-echo "Inside QEMU, set your Golioth credentials:"
-echo "  export GOLIOTH_SAMPLE_PSK_ID=\"your-device-psk-id\""
-echo "  export GOLIOTH_SAMPLE_PSK=\"your-device-psk\""
-echo "  golioth_basics"
+echo "Inside QEMU, configure the Golioth daemon:"
+echo "  vi /etc/golioth_app.conf"
+echo "  # Set: GOLIOTH_SAMPLE_PSK_ID=\"your-device@your-project\""
+echo "  # Set: GOLIOTH_SAMPLE_PSK=\"your-device-psk\""
+echo "  /etc/init.d/S99golioth_app start"
+echo "  tail -f /var/log/messages | grep golioth_app"

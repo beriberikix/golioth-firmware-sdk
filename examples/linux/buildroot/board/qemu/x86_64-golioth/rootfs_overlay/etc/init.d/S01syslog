@@ -1,0 +1,60 @@
+#!/bin/sh
+#
+# Start logging
+#
+
+DAEMON="syslogd"
+KLOGD="klogd"
+
+start() {
+    printf "Starting $DAEMON: "
+    start-stop-daemon --start --quiet --background --exec /sbin/$DAEMON
+    if [ $? -eq 0 ]; then
+        echo "OK"
+    else
+        echo "FAILED"
+        return 1
+    fi
+
+    printf "Starting $KLOGD: "
+    start-stop-daemon --start --quiet --background --exec /sbin/$KLOGD
+    if [ $? -eq 0 ]; then
+        echo "OK"
+    else
+        echo "FAILED"
+        return 1
+    fi
+}
+
+stop() {
+    printf "Stopping $DAEMON: "
+    start-stop-daemon --stop --quiet --pidfile /var/run/$DAEMON.pid
+    echo "OK"
+
+    printf "Stopping $KLOGD: "
+    start-stop-daemon --stop --quiet --pidfile /var/run/$KLOGD.pid
+    echo "OK"
+}
+
+restart() {
+    stop
+    start
+}
+
+case "$1" in
+    start)
+        start
+        ;;
+    stop)
+        stop
+        ;;
+    restart)
+        restart
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|restart}"
+        exit 1
+        ;;
+esac
+
+exit $?

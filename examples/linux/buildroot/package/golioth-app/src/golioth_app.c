@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <inttypes.h>
+#include <stdbool.h>
 
 #include <golioth/client.h>
 #include <golioth/fw_update.h>
@@ -19,6 +20,9 @@
 #include "golioth_app.h"
 
 LOG_TAG_DEFINE(golioth_app);
+
+// Global shutdown flag for graceful termination
+static volatile bool _shutdown_requested = false;
 
 // Current firmware version
 static const char *_current_version = "1.2.5";
@@ -258,15 +262,21 @@ int golioth_app_main(struct golioth_client *client)
 
     // Now we'll just sit in a loop and update a LightDB state variable every
     // once in a while.
-    GLTH_LOGI(TAG, "Entering endless loop");
+    GLTH_LOGI(TAG, "Entering main loop");
     int32_t counter = 0;
-    while (1)
+    while (!_shutdown_requested)
     {
         golioth_lightdb_set_int_async(client, "counter", counter, NULL, NULL);
         GLTH_LOGI(TAG, "Sending hello! %" PRId32, counter);
         counter++;
-        golioth_sys_msleep(_loop_delay_s * 1000);
+
+        // Sleep in smaller intervals to check shutdown flag more frequently
+        for (int i = 0; i < _loop_delay_s && !_shutdown_requested; i++) {
+            golioth_sys_msleep(1000);
+        }
     };
+
+    GLTH_LOGI(TAG, "Shutdown requested, exiting main loop");
 
     // That pretty much covers the basics of this SDK!
     //
@@ -280,4 +290,9 @@ int golioth_app_main(struct golioth_client *client)
     // }
 
     return 0;
+}
+
+void golioth_app_shutdown(void)
+{
+    _shutdown_requested = true;
 }
