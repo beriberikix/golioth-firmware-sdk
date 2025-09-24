@@ -20,11 +20,17 @@ else
 fi
 
 # Check if images exist
-if [ ! -f "${BUILD_DIR}/images/bzImage" ]; then
-    echo "Error: Kernel image not found at ${BUILD_DIR}/images/bzImage"
+if [ ! -f "${BUILD_DIR}/images/u-boot.bin" ]; then
+    echo "Error: U-Boot image not found at ${BUILD_DIR}/images/u-boot.bin"
     echo "Please build the system first with:"
     echo "  make BR2_EXTERNAL=${BUILDROOT_DIR} qemu_x86_64_golioth_defconfig"
     echo "  make"
+    exit 1
+fi
+
+if [ ! -f "${BUILD_DIR}/images/bzImage" ]; then
+    echo "Error: Kernel image not found at ${BUILD_DIR}/images/bzImage"
+    echo "Please build the system first"
     exit 1
 fi
 
@@ -42,10 +48,12 @@ if ! command -v qemu-system-x86_64 &> /dev/null; then
     exit 1
 fi
 
-echo "Starting QEMU with Golioth Buildroot system..."
+echo "Starting QEMU with Golioth Buildroot system (U-Boot)..."
+echo "Bootloader: U-Boot"
 echo "Network: User networking enabled (NAT)"
 echo "Console: Serial console (use Ctrl+A then X to exit)"
 echo ""
+echo "Boot process: U-Boot will automatically load Linux kernel"
 echo "Once booted, set your Golioth credentials:"
 echo "  export GOLIOTH_SAMPLE_PSK_ID=your-device-psk-id"
 echo "  export GOLIOTH_SAMPLE_PSK=your-device-psk"
@@ -54,9 +62,9 @@ echo ""
 
 exec qemu-system-x86_64 \
     -M pc \
-    -kernel "${BUILD_DIR}/images/bzImage" \
+    -bios "${BUILD_DIR}/images/u-boot.bin" \
     -drive "file=${BUILD_DIR}/images/rootfs.ext2,if=virtio,format=raw" \
-    -append "rootwait root=/dev/vda console=ttyS0" \
+    -drive "file=${BUILD_DIR}/images/bzImage,if=virtio,format=raw" \
     -net nic,model=virtio \
     -net user \
     -nographic \

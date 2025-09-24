@@ -1,6 +1,6 @@
 # Golioth Firmware SDK Buildroot Example
 
-This directory contains a complete Buildroot br2-external tree for building a Linux system with the Golioth Firmware SDK and a production-ready `golioth_app` daemon. The system runs on QEMU with full network support for easy testing and development.
+This directory contains a complete Buildroot br2-external tree for building a Linux system with the Golioth Firmware SDK and a production-ready `golioth_app` daemon. The system uses U-Boot as the bootloader and runs on QEMU with full network support for easy testing and development.
 
 ## Quick Start
 
@@ -53,17 +53,21 @@ sudo apt install qemu-system-x86 qemu-system-aarch64
 Launch the system:
 ```bash
 # For ARM64 build (Apple Silicon):
-qemu-system-aarch64 -M virt -cpu cortex-a57 -m 256M \
-  -kernel output/Image -drive file=output/rootfs.ext2,if=virtio,format=raw \
-  -append "rootwait root=/dev/vda console=ttyAMA0" \
+qemu-system-aarch64 -M virt -cpu cortex-a57 -m 512M \
+  -bios output/u-boot.bin \
+  -drive file=output/rootfs.ext2,if=virtio,format=raw \
+  -drive file=output/Image,if=virtio,format=raw \
   -netdev user,id=net0 -device virtio-net-device,netdev=net0 -nographic
 
 # For x86_64 build:
 qemu-system-x86_64 -M pc -m 256M \
-  -kernel output/bzImage -drive file=output/rootfs.ext2,if=virtio,format=raw \
-  -append "rootwait root=/dev/vda console=ttyS0" \
+  -bios output/u-boot.bin \
+  -drive file=output/rootfs.ext2,if=virtio,format=raw \
+  -drive file=output/bzImage,if=virtio,format=raw \
   -netdev user,id=net0 -device virtio-net-pci,netdev=net0 -nographic
 ```
+
+**Note:** The system now boots through U-Boot, which provides a more realistic embedded Linux boot experience. U-Boot will automatically detect and load the kernel from the virtio drive.
 
 ### 4. Configure and Start Daemon
 
@@ -169,13 +173,44 @@ ping golioth.io
 - Use Docker (recommended)
 - Or install GNU tools: `brew install gcc bash findutils coreutils`
 
+**Problem**: U-Boot doesn't boot or hangs
+```bash
+# Check if U-Boot binary was created
+ls -la output/images/u-boot.bin
+
+# If missing, check build logs for U-Boot errors
+make uboot-rebuild
+
+# For debugging, you can run U-Boot interactively
+# Add -monitor stdio to QEMU command to get U-Boot prompt
+```
+
+**Problem**: U-Boot build fails with crypto library errors
+- System uses **mbedTLS only** - no OpenSSL to avoid crypto library bloat
+- U-Boot, Golioth SDK, and SSH all use mbedTLS for consistency
+- If you see crypto errors, ensure `BR2_PACKAGE_HOST_MBEDTLS=y` and `BR2_TARGET_UBOOT_NEEDS_MBEDTLS=y` are set
+- Note: Removed `BR2_LINUX_KERNEL_NEEDS_HOST_OPENSSL=y` to eliminate OpenSSL dependency from kernel builds
+
+**Problem**: Kernel doesn't load after U-Boot
+- U-Boot expects kernel on virtio drive - ensure both rootfs and kernel drives are attached
+- Check U-Boot environment variables with `printenv` command in U-Boot prompt
+
 ## System Details
 
+- **Bootloader**: U-Boot (production-ready embedded bootloader)
+- **Crypto Library**: mbedTLS (lightweight, embedded-optimized)
 - **Init system**: BusyBox init (simple, embedded-friendly)
 - **Logging**: syslog + Golioth cloud logging
 - **Network**: DHCP with DNS fallback (8.8.8.8)
 - **Filesystem**: ext4, 120MB root filesystem
 - **Security**: Runs as root (embedded system pattern)
+
+### Boot Process
+1. QEMU starts and loads U-Boot from BIOS flash
+2. U-Boot initializes hardware and discovers virtio drives
+3. U-Boot automatically loads and boots Linux kernel
+4. Linux mounts root filesystem and starts BusyBox init
+5. Golioth daemon starts automatically via init script
 
 ## Support
 

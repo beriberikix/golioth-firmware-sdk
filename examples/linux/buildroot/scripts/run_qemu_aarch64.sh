@@ -20,11 +20,17 @@ else
 fi
 
 # Check if images exist
-if [ ! -f "${BUILD_DIR}/images/Image" ]; then
-    echo "Error: Kernel image not found at ${BUILD_DIR}/images/Image"
+if [ ! -f "${BUILD_DIR}/images/u-boot.bin" ]; then
+    echo "Error: U-Boot image not found at ${BUILD_DIR}/images/u-boot.bin"
     echo "Please build the ARM64 system first with:"
     echo "  make BR2_EXTERNAL=${BUILDROOT_DIR} qemu_aarch64_golioth_defconfig"
     echo "  make"
+    exit 1
+fi
+
+if [ ! -f "${BUILD_DIR}/images/Image" ]; then
+    echo "Error: Kernel image not found at ${BUILD_DIR}/images/Image"
+    echo "Please build the system first"
     exit 1
 fi
 
@@ -45,12 +51,14 @@ if ! command -v qemu-system-aarch64 &> /dev/null; then
     exit 1
 fi
 
-echo "Starting QEMU with Golioth Buildroot system (ARM64)..."
+echo "Starting QEMU with Golioth Buildroot system (ARM64 + U-Boot)..."
 echo "Architecture: ARM64 (optimized for Apple Silicon)"
+echo "Bootloader: U-Boot"
 echo "Network: User networking enabled (NAT)"
 echo "Console: Serial console (use Ctrl+A then X to exit)"
 echo "Performance: Should be faster on Apple Silicon compared to x86_64 emulation"
 echo ""
+echo "Boot process: U-Boot will automatically load Linux kernel"
 echo "Once booted, set your Golioth credentials:"
 echo "  export GOLIOTH_SAMPLE_PSK_ID=your-device-psk-id"
 echo "  export GOLIOTH_SAMPLE_PSK=your-device-psk"
@@ -69,9 +77,9 @@ exec qemu-system-aarch64 \
     -smp 2 \
     -m 512M \
     $ACCEL_ARGS \
-    -kernel "${BUILD_DIR}/images/Image" \
+    -bios "${BUILD_DIR}/images/u-boot.bin" \
     -drive "file=${BUILD_DIR}/images/rootfs.ext2,if=virtio,format=raw" \
-    -append "rootwait root=/dev/vda console=ttyAMA0" \
+    -drive "file=${BUILD_DIR}/images/Image,if=virtio,format=raw" \
     -netdev user,id=net0 \
     -device virtio-net-device,netdev=net0 \
     -nographic \
