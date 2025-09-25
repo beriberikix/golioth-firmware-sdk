@@ -50,7 +50,28 @@ brew install qemu
 sudo apt install qemu-system-x86 qemu-system-aarch64
 ```
 
-Launch the system:
+## Launch the system
+
+### Option 1: Direct Kernel Boot (Recommended)
+```bash
+# For ARM64 build (Apple Silicon):
+qemu-system-aarch64 -M virt -cpu cortex-a57 -m 512M \
+  -kernel output/Image \
+  -drive file=output/rootfs.ext2,if=virtio,format=raw \
+  -append "rootwait root=/dev/vda console=ttyAMA0" \
+  -netdev user,id=net0 -device virtio-net-device,netdev=net0 \
+  -nographic
+
+# For x86_64 build:
+qemu-system-x86_64 -M pc -m 256M \
+  -kernel output/bzImage \
+  -drive file=output/rootfs.ext2,if=virtio,format=raw \
+  -append "rootwait root=/dev/vda console=ttyS0" \
+  -netdev user,id=net0 -device virtio-net-pci,netdev=net0 \
+  -nographic
+```
+
+### Option 2: U-Boot + Manual Kernel Loading
 ```bash
 # For ARM64 build (Apple Silicon):
 qemu-system-aarch64 -M virt -cpu cortex-a57 -m 512M \
@@ -59,12 +80,24 @@ qemu-system-aarch64 -M virt -cpu cortex-a57 -m 512M \
   -drive file=output/Image,if=virtio,format=raw \
   -netdev user,id=net0 -device virtio-net-device,netdev=net0 -nographic
 
+# Then at the U-Boot prompt:
+=> virtio scan
+=> load virtio 1:0 0x40400000 Image
+=> setenv bootargs rootwait root=/dev/vda console=ttyAMA0
+=> booti 0x40400000 - $fdtcontroladdr
+
 # For x86_64 build:
 qemu-system-x86_64 -M pc -m 256M \
   -bios output/u-boot.bin \
   -drive file=output/rootfs.ext2,if=virtio,format=raw \
   -drive file=output/bzImage,if=virtio,format=raw \
   -netdev user,id=net0 -device virtio-net-pci,netdev=net0 -nographic
+
+# Then at the U-Boot prompt:
+=> virtio scan
+=> load virtio 1:0 0x1000000 bzImage
+=> setenv bootargs rootwait root=/dev/vda console=ttyS0
+=> bootz 0x1000000
 ```
 
 **Note:** The system now boots through U-Boot, which provides a more realistic embedded Linux boot experience. U-Boot will automatically detect and load the kernel from the virtio drive.

@@ -5,3 +5,5 @@ CONFIG_VIRTIO_NET=y
 CONFIG_NETDEVICES=y
 CONFIG_NET_CORE=y
 CONFIG_INET=y
+# Disable specific certificate tools that require OpenSSL
+CONFIG_SYSTEM_TRUSTED_KEYS=""
