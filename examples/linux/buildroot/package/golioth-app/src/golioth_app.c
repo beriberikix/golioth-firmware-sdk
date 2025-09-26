@@ -24,8 +24,11 @@ LOG_TAG_DEFINE(golioth_app);
 // Global shutdown flag for graceful termination
 static volatile bool _shutdown_requested = false;
 
-// Current firmware version
-static const char *_current_version = "1.2.5";
+// Current firmware version (defined at build time)
+#ifndef FIRMWARE_VERSION
+#define FIRMWARE_VERSION "1.2.5"
+#endif
+static const char *_current_version = FIRMWARE_VERSION;
 
 // Configurable via LightDB State at path "desired/my_config"
 int32_t _my_config = 0;

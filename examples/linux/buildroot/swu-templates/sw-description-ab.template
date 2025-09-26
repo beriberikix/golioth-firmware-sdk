@@ -1,0 +1,73 @@
+/*
+ * swupdate sw-description template for A/B updates
+ * This template supports:
+ * - A/B rootfs updates
+ * - Automatic slot detection and switching
+ * - Boot environment management
+ * - Rollback protection
+ *
+ * Variables to replace:
+ * - @VERSION@: Firmware version
+ * - @DESCRIPTION@: Update description
+ * - @ARCH@: Target architecture
+ * - @ROOTFS_SHA256@: SHA256 of rootfs image
+ * - @ROOTFS_SIZE@: Size of rootfs in bytes
+ */
+
+software =
+{
+    version = "@VERSION@";
+    description = "@DESCRIPTION@";
+
+    @ARCH@ = {
+        hardware-compatibility: [ "1.0" ];
+
+        /*
+         * A/B Update Strategy:
+         * - Install to inactive slot (opposite of current boot_slot)
+         * - Update boot environment to switch slots
+         * - Set retry counter for rollback protection
+         */
+
+        files: (
+            {
+                filename = "rootfs.ext2";
+                device = "/dev/vdb2,/dev/vdb3";  // A/B slots
+                type = "raw";
+                sha256 = "@ROOTFS_SHA256@";
+                size = "@ROOTFS_SIZE@";
+                compressed = false;
+                installed-directly = true;
+
+                /* Install to inactive slot */
+                properties: {
+                    slot-selection = "inactive";
+                };
+            }
+        );
+
+        /* Update U-Boot environment for A/B switching */
+        bootenv: (
+            {
+                name = "boot_slot_retry";
+                value = "3";  // Allow 3 boot attempts
+            },
+            {
+                name = "upgrade_available";
+                value = "1";  // Mark upgrade as available
+            }
+        );
+
+        /* Scripts for A/B management */
+        scripts: (
+            {
+                filename = "pre-install.sh";
+                type = "preinstall";
+            },
+            {
+                filename = "post-install.sh";
+                type = "postinstall";
+            }
+        );
+    };
+}

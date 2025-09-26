@@ -1,0 +1,42 @@
+#!/bin/sh
+#
+# Start swupdate daemon for A/B OTA updates
+#
+
+DAEMON="swupdate"
+PIDFILE="/var/run/$DAEMON.pid"
+DAEMON_ARGS="-f /etc/swupdate.cfg -l 5 -u '-t 10' -H golioth-qemu:8080 -p"
+
+case "$1" in
+  start)
+    echo -n "Starting $DAEMON: "
+    start-stop-daemon -S -q -p $PIDFILE -x /usr/bin/$DAEMON -- $DAEMON_ARGS
+    [ $? = 0 ] && echo "OK" || echo "FAIL"
+    ;;
+  stop)
+    echo -n "Stopping $DAEMON: "
+    start-stop-daemon -K -q -p $PIDFILE
+    [ $? = 0 ] && echo "OK" || echo "FAIL"
+    ;;
+  restart|reload)
+    "$0" stop
+    "$0" start
+    ;;
+  status)
+    if [ -f $PIDFILE ]; then
+      PID=$(cat $PIDFILE)
+      if [ -d "/proc/$PID" ]; then
+        echo "$DAEMON is running (pid $PID)"
+      else
+        echo "$DAEMON is not running but pidfile exists"
+      fi
+    else
+      echo "$DAEMON is not running"
+    fi
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart|reload|status}"
+    exit 1
+esac
+
+exit $?

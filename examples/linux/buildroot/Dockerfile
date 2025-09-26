@@ -5,12 +5,15 @@ FROM ubuntu:22.04
 # Build arguments
 ARG BUILDROOT_VERSION=2025.08.x
 ARG TARGET_CONFIG=qemu_aarch64_golioth_defconfig
+ARG FIRMWARE_VERSION=1.0.0
+ARG CREATE_SWU=true
 
 # Avoid interactive prompts during package installation
 ARG DEBIAN_FRONTEND=noninteractive
 
 # Install minimal dependencies for external toolchain builds
 # Note: No build-essential or heavy dev tools needed since we use pre-built toolchains
+# Added tools for A/B partition management and .swu generation
 RUN apt-get update && apt-get install -y \
     git \
     wget \
@@ -30,6 +33,13 @@ RUN apt-get update && apt-get install -y \
     bzip2 \
     gzip \
     xz-utils \
+    util-linux \
+    dosfstools \
+    e2fsprogs \
+    parted \
+    u-boot-tools \
+    mtools \
+    xxd \
     && rm -rf /var/lib/apt/lists/*
 
 # Create a non-root user for building with matching host UID
@@ -58,6 +68,8 @@ USER builder
 # Set environment variables
 ENV BUILDROOT_VERSION=${BUILDROOT_VERSION}
 ENV TARGET_CONFIG=${TARGET_CONFIG}
+ENV FIRMWARE_VERSION=${FIRMWARE_VERSION}
+ENV CREATE_SWU=${CREATE_SWU}
 
 # Build script will be run when container starts
 CMD ["/build/build-in-docker.sh"]

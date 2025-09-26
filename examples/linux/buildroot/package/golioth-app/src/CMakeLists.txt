@@ -8,10 +8,18 @@ set(CMAKE_BUILD_TYPE Release)
 get_filename_component(user_config_file "golioth_user_config.h" ABSOLUTE)
 add_definitions(-DCONFIG_GOLIOTH_USER_CONFIG_INCLUDE="${user_config_file}")
 
+# Add firmware version definition
+if(FIRMWARE_VERSION)
+    add_definitions(-DFIRMWARE_VERSION="${FIRMWARE_VERSION}")
+else()
+    add_definitions(-DFIRMWARE_VERSION="1.2.5")
+endif()
+
 # Source files for the application
 set(srcs
     main.c
     golioth_app.c
+    fw_update_swupdate.c
 )
 
 # Create the executable

@@ -1,0 +1,74 @@
+/*
+ * swupdate sw-description template for multi-component updates
+ * This template supports:
+ * - RootFS + Kernel updates
+ * - Multiple file components
+ * - Conditional updates based on versions
+ *
+ * Variables to replace:
+ * - @VERSION@: Firmware version
+ * - @DESCRIPTION@: Update description
+ * - @ARCH@: Target architecture
+ * - @ROOTFS_SHA256@: SHA256 of rootfs image
+ * - @KERNEL_SHA256@: SHA256 of kernel image
+ * - @ROOTFS_SIZE@: Size of rootfs in bytes
+ * - @KERNEL_SIZE@: Size of kernel in bytes
+ */
+
+software =
+{
+    version = "@VERSION@";
+    description = "@DESCRIPTION@";
+
+    @ARCH@ = {
+        hardware-compatibility: [ "1.0" ];
+
+        /* Multiple components can be updated together */
+        files: (
+            {
+                filename = "rootfs.ext2";
+                device = "/dev/vdb2,/dev/vdb3";  // A/B slots
+                type = "raw";
+                sha256 = "@ROOTFS_SHA256@";
+                size = "@ROOTFS_SIZE@";
+                compressed = false;
+                installed-directly = true;
+                properties: {
+                    slot-selection = "inactive";
+                };
+            },
+            {
+                filename = "kernel";
+                path = "/boot/kernel-@VERSION@";
+                type = "rawfile";
+                sha256 = "@KERNEL_SHA256@";
+                size = "@KERNEL_SIZE@";
+                compressed = false;
+            }
+        );
+
+        /* Conditional updates based on current version */
+        scripts: (
+            {
+                filename = "version-check.sh";
+                type = "preinstall";
+                /* Only run if current version is older */
+            },
+            {
+                filename = "post-install.sh";
+                type = "postinstall";
+            }
+        );
+
+        bootenv: (
+            {
+                name = "kernel_version";
+                value = "@VERSION@";
+            },
+            {
+                name = "boot_slot_retry";
+                value = "3";
+            }
+        );
+    };
+}
