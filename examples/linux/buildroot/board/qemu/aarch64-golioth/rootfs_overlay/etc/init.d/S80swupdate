@@ -1,37 +1,49 @@
 #!/bin/sh
 #
-# Start swupdate daemon for A/B OTA updates
+# Start swupdate daemon for single partition OTA updates
 #
 
 DAEMON="swupdate"
 PIDFILE="/var/run/$DAEMON.pid"
-DAEMON_ARGS="-f /etc/swupdate.cfg -l 5 -u '-t 10' -H golioth-qemu:8080 -p"
+SWUPDATE_WRAPPER="/usr/lib/swupdate/swupdate.sh"
 
-case "$1" in
-  start)
+start() {
     echo -n "Starting $DAEMON: "
-    start-stop-daemon -S -q -p $PIDFILE -x /usr/bin/$DAEMON -- $DAEMON_ARGS
+
+    # Create required directories
+    mkdir -p /tmp/swupdate
+    mkdir -p /var/run
+
+    # Use the swupdate wrapper script which handles conf.d configuration
+    start-stop-daemon -S -q -p $PIDFILE -x $SWUPDATE_WRAPPER
     [ $? = 0 ] && echo "OK" || echo "FAIL"
-    ;;
-  stop)
+}
+
+stop() {
     echo -n "Stopping $DAEMON: "
     start-stop-daemon -K -q -p $PIDFILE
     [ $? = 0 ] && echo "OK" || echo "FAIL"
+}
+
+case "$1" in
+  start)
+    start
+    ;;
+  stop)
+    stop
     ;;
   restart|reload)
-    "$0" stop
-    "$0" start
+    stop
+    sleep 1
+    start
     ;;
   status)
-    if [ -f $PIDFILE ]; then
-      PID=$(cat $PIDFILE)
-      if [ -d "/proc/$PID" ]; then
-        echo "$DAEMON is running (pid $PID)"
-      else
-        echo "$DAEMON is not running but pidfile exists"
-      fi
+    if [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
+        echo "$DAEMON is running (PID $(cat "$PIDFILE"))"
+        return 0
     else
-      echo "$DAEMON is not running"
+        echo "$DAEMON is not running"
+        return 1
     fi
     ;;
   *)

@@ -1,0 +1,31 @@
+From: Claude Code <noreply@anthropic.com>
+Date: Fri, 27 Sep 2025 21:45:00 +0000
+Subject: [PATCH] Add Golioth custom boot environment
+
+This patch adds custom boot environment for Golioth single partition setup.
+Disables bootflow system and sets up direct kernel boot from virtio.
+
+Signed-off-by: Claude Code <noreply@anthropic.com>
+---
+diff --git a/include/configs/qemu-arm.h b/include/configs/qemu-arm.h
+index 1..2 100644
+--- a/include/configs/qemu-arm.h
++++ b/include/configs/qemu-arm.h
+@@ -30,4 +30,17 @@
+ #define CONFIG_SYS_MONITOR_BASE		CONFIG_SYS_TEXT_BASE
+ #define CONFIG_SYS_MONITOR_LEN		SZ_64M
+
++/* Golioth custom boot configuration */
++#undef CONFIG_BOOTCOMMAND
++#define CONFIG_BOOTCOMMAND \
++	"virtio scan; " \
++	"fatload virtio 0:1 0x40080000 Image; " \
++	"setenv bootargs root=/dev/vda2 rootwait console=ttyAMA0 rw; " \
++	"booti 0x40080000 - ${fdtcontroladdr}"
++
++#define CONFIG_EXTRA_ENV_SETTINGS \
++	"kernel_addr_r=0x40080000\0" \
++	"fdt_addr_r=0x47000000\0" \
++	"ramdisk_addr_r=0x48000000\0"
++
+ #endif /* __CONFIG_H */

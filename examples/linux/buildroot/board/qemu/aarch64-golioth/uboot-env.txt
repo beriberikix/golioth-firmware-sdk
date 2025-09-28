@@ -1,0 +1,7 @@
+bootcmd=virtio scan; fatload virtio 0:1 0x40080000 Image; setenv bootargs "root=/dev/vda2 rootwait console=ttyAMA0 rw"; booti 0x40080000 - $fdtcontroladdr
+kernel_addr_r=0x40080000
+fdt_addr_r=0x47000000
+ramdisk_addr_r=0x48000000
+bootdelay=2
+firmware_version=1.0.0
+boot_method=single_partition

@@ -1,0 +1,3 @@
+# SWUpdate configuration for Golioth single-partition OTA
+# Local IPC mode without webserver - no config file needed
+SWUPDATE_ARGS="-v -l 5"

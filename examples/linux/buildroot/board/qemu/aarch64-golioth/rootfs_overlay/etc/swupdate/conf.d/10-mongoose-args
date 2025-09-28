@@ -1,0 +1,2 @@
+# Override default webserver configuration - disable webserver for Golioth mode
+SWUPDATE_WEBSERVER_ARGS=""

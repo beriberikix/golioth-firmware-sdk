@@ -1,0 +1,2 @@
+# Override default progress monitoring - disable for simpler setup
+# exec /usr/bin/swupdate-progress -w -r &

@@ -1,0 +1,12 @@
+# U-Boot configuration fragment for Golioth automatic boot
+# Disable the new bootflow system that interferes with custom bootcmd
+
+# CONFIG_BOOTSTD is not set
+# CONFIG_BOOTSTD_DEFAULTS is not set
+# CONFIG_BOOTSTD_FULL is not set
+
+# Enable classic boot methods
+CONFIG_BOOTMETH_LEGACY=y
+
+# Set reasonable timeout
+CONFIG_BOOTDELAY=2

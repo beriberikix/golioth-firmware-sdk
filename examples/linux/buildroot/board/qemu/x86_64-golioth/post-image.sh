@@ -10,89 +10,155 @@ IMAGES_DIR="$1"
 
 echo "Creating A/B partition layout for x86_64..."
 
-# Create A/B partition disk image (128MB total)
+# Create A/B partition disk image (200MB total for proper fit)
 # Partition layout:
-# - Boot partition (16MB) - shared kernel
-# - RootFS A (56MB) - active
-# - RootFS B (56MB) - inactive
+# - Boot partition (32MB) - shared kernel
+# - RootFS A (80MB) - active
+# - RootFS B (80MB) - inactive
 
 AB_IMAGE="${IMAGES_DIR}/rootfs_ab.img"
-BOOT_SIZE_MB=16
-ROOTFS_SIZE_MB=56
+BOOT_SIZE_MB=32
+ROOTFS_SIZE_MB=80
+TOTAL_SIZE_MB=200
 
 # Calculate sizes in sectors (512 bytes each)
 BOOT_SIZE_SECTORS=$((BOOT_SIZE_MB * 1024 * 1024 / 512))
 ROOTFS_SIZE_SECTORS=$((ROOTFS_SIZE_MB * 1024 * 1024 / 512))
 
-# Create empty disk image (128MB)
-dd if=/dev/zero of="${AB_IMAGE}" bs=1M count=128
+# Create empty disk image with proper size
+dd if=/dev/zero of="${AB_IMAGE}" bs=1M count=${TOTAL_SIZE_MB}
 
-# Try to create partition table - with fallback for Docker limitations
+# Create partition table with corrected layout
 echo "Creating A/B partition table..."
 PARTITION_SUCCESS=false
 
-# First attempt with sfdisk
-if sfdisk "${AB_IMAGE}" << 'SFDISK_EOF'
+# Use sfdisk with proper sector calculations
+# GPT header uses first 2048 sectors (1MB)
+# Leave some space at the end for GPT backup
+START_SECTOR=2048
+BOOT_END=$((START_SECTOR + BOOT_SIZE_SECTORS - 1))
+ROOTFS_A_START=$((BOOT_END + 1))
+ROOTFS_A_END=$((ROOTFS_A_START + ROOTFS_SIZE_SECTORS - 1))
+ROOTFS_B_START=$((ROOTFS_A_END + 1))
+ROOTFS_B_END=$((ROOTFS_B_START + ROOTFS_SIZE_SECTORS - 1))
+
+echo "Partition layout (sectors):"
+echo "  Boot: ${START_SECTOR}-${BOOT_END} (${BOOT_SIZE_SECTORS} sectors)"
+echo "  RootFS A: ${ROOTFS_A_START}-${ROOTFS_A_END} (${ROOTFS_SIZE_SECTORS} sectors)"
+echo "  RootFS B: ${ROOTFS_B_START}-${ROOTFS_B_END} (${ROOTFS_SIZE_SECTORS} sectors)"
+
+# Try creating partition table with alternative method
+if sfdisk "${AB_IMAGE}" << SFDISK_EOF
 label: gpt
-2048,32768,uefi
-34816,114688,linux
-149504,114688,linux
+unit: sectors
+first-lba: 2048
+
+${START_SECTOR},${BOOT_SIZE_SECTORS},uefi
+${ROOTFS_A_START},${ROOTFS_SIZE_SECTORS},linux
+${ROOTFS_B_START},${ROOTFS_SIZE_SECTORS},linux
 SFDISK_EOF
 then
     echo "✓ A/B partition table created successfully"
     PARTITION_SUCCESS=true
 else
-    echo "⚠ sfdisk failed in Docker environment - creating simplified layout"
-    # Fallback: Just create the basic disk image structure
-    echo "Using fallback approach for A/B layout"
+    echo "⚠ sfdisk failed - trying alternative approach"
+    PARTITION_SUCCESS=false
 fi
 
 echo "A/B partition image created: ${AB_IMAGE}"
 
-echo "Docker build detected - creating simplified A/B image structure"
+# Only proceed with filesystem creation if partition table was successful
+if [ "$PARTITION_SUCCESS" = "true" ]; then
+    echo "✓ Proceeding with filesystem creation on partitioned image"
+else
+    echo "⚠ Partition table creation failed - A/B boot will not work properly"
+    echo "⚠ Continuing with simplified layout for debugging"
+fi
 
-# Calculate partition offsets in bytes
-BOOT_OFFSET_BYTES=$((2048 * 512))
-ROOTFS_A_OFFSET_BYTES=$(((2048 + BOOT_SIZE_SECTORS) * 512))
-ROOTFS_B_OFFSET_BYTES=$(((2048 + BOOT_SIZE_SECTORS + ROOTFS_SIZE_SECTORS) * 512))
+# Calculate partition offsets in bytes for filesystem copying
+BOOT_OFFSET_BYTES=$((START_SECTOR * 512))
+ROOTFS_A_OFFSET_BYTES=$((ROOTFS_A_START * 512))
+ROOTFS_B_OFFSET_BYTES=$((ROOTFS_B_START * 512))
 
-echo "Partition layout:"
-echo "  Boot: offset ${BOOT_OFFSET_BYTES} bytes, size $((BOOT_SIZE_SECTORS * 512)) bytes"
-echo "  RootFS A: offset ${ROOTFS_A_OFFSET_BYTES} bytes, size $((ROOTFS_SIZE_SECTORS * 512)) bytes"
-echo "  RootFS B: offset ${ROOTFS_B_OFFSET_BYTES} bytes, size $((ROOTFS_SIZE_SECTORS * 512)) bytes"
+echo "Filesystem copy offsets:"
+echo "  Boot: offset ${BOOT_OFFSET_BYTES} bytes"
+echo "  RootFS A: offset ${ROOTFS_A_OFFSET_BYTES} bytes"
+echo "  RootFS B: offset ${ROOTFS_B_OFFSET_BYTES} bytes"
 
-# Create a simple boot partition image
+# WORKING SOLUTION: Copy kernel using mtools
 BOOT_IMAGE="${IMAGES_DIR}/boot.fat32"
-echo "Creating boot partition image..."
+
+echo "Creating boot partition with kernel..."
+
+# Create FAT32 boot partition
 if dd if=/dev/zero of="${BOOT_IMAGE}" bs=1M count=${BOOT_SIZE_MB} 2>/dev/null; then
     echo "✓ Boot image created"
 else
     echo "⚠ Boot image creation failed"
 fi
 
+# Stage files for boot partition
+KERNEL_STAGING="/tmp/boot_staging_$$"
+mkdir -p "${KERNEL_STAGING}"
+
+if [ -f "${IMAGES_DIR}/bzImage" ]; then
+    cp "${IMAGES_DIR}/bzImage" "${KERNEL_STAGING}/"
+    echo "✓ Kernel staged ($(stat -c%s "${IMAGES_DIR}/bzImage" 2>/dev/null || echo "0") bytes)"
+else
+    echo "⚠ Kernel bzImage not found at ${IMAGES_DIR}/bzImage"
+    echo "MISSING_KERNEL" > "${KERNEL_STAGING}/MISSING_KERNEL"
+fi
+
+# Create FAT32 filesystem and copy files using mtools
 if mkfs.fat -F32 "${BOOT_IMAGE}" 2>/dev/null; then
     echo "✓ Boot filesystem created"
+
+    # Use mtools with proper configuration
+    MTOOLS_CONF="/tmp/mtools_$$.conf"
+    echo "drive z: file=\"${BOOT_IMAGE}\" mformat_only" > "${MTOOLS_CONF}"
+
+    export MTOOLSRC="${MTOOLS_CONF}"
+    COPY_SUCCESS=false
+
+    if command -v mcopy >/dev/null 2>&1; then
+        echo "Debug: Attempting mcopy with mtools config"
+        for file in "${KERNEL_STAGING}"/*; do
+            if [ -f "$file" ]; then
+                filename=$(basename "$file")
+                echo "Debug: Copying $filename..."
+                if mcopy -i "${BOOT_IMAGE}" "$file" "::$filename" 2>&1; then
+                    echo "✓ Copied $filename to boot partition"
+                    COPY_SUCCESS=true
+                else
+                    echo "⚠ Failed to copy $filename"
+                fi
+            fi
+        done
+    else
+        echo "⚠ mcopy not available"
+    fi
+
+    # Verify what was actually copied
+    if command -v mdir >/dev/null 2>&1; then
+        echo "Debug: Boot partition contents:"
+        mdir -i "${BOOT_IMAGE}" ::/ || echo "⚠ Could not list boot partition contents"
+    fi
+
+    rm -f "${MTOOLS_CONF}"
+
+    if [ "$COPY_SUCCESS" = "false" ]; then
+        echo "⚠ No files were successfully copied to boot partition"
+        echo "⚠ A/B boot will not work without kernel in boot partition"
+    fi
 else
     echo "⚠ Boot filesystem creation failed"
 fi
 
-# Copy kernel to boot image (requires mtools)
-if command -v mcopy >/dev/null 2>&1; then
-    if [ -f "${IMAGES_DIR}/bzImage" ]; then
-        if mcopy -i "${BOOT_IMAGE}" "${IMAGES_DIR}/bzImage" ::bzImage 2>/dev/null; then
-            echo "✓ Kernel copied to boot partition"
-        else
-            echo "⚠ Kernel copy failed"
-        fi
-    else
-        echo "⚠ bzImage not found"
-    fi
-else
-    echo "⚠ mtools not available, boot partition will be empty"
-fi
+# Cleanup
+rm -rf "${KERNEL_STAGING}"
 
 # Copy boot partition to A/B image at correct offset
-if dd if="${BOOT_IMAGE}" of="${AB_IMAGE}" bs=512 seek=2048 conv=notrunc 2>/dev/null; then
+if dd if="${BOOT_IMAGE}" of="${AB_IMAGE}" bs=512 seek=${START_SECTOR} conv=notrunc 2>/dev/null; then
     echo "✓ Boot partition copied successfully"
 else
     echo "⚠ Boot partition copy failed, but continuing..."
@@ -101,10 +167,20 @@ fi
 # Copy rootfs to both A and B partitions
 if [ -f "${IMAGES_DIR}/rootfs.ext2" ]; then
     echo "Copying rootfs to A/B partitions..."
-    if dd if="${IMAGES_DIR}/rootfs.ext2" of="${AB_IMAGE}" bs=512 seek=$((2048 + BOOT_SIZE_SECTORS)) conv=notrunc 2>/dev/null; then
+
+    # Resize rootfs if needed to fit the new partition size
+    CURRENT_ROOTFS_SIZE=$(stat -c%s "${IMAGES_DIR}/rootfs.ext2" 2>/dev/null || echo "0")
+    MAX_ROOTFS_SIZE=$((ROOTFS_SIZE_SECTORS * 512))
+
+    if [ "$CURRENT_ROOTFS_SIZE" -gt "$MAX_ROOTFS_SIZE" ]; then
+        echo "⚠ Warning: rootfs.ext2 (${CURRENT_ROOTFS_SIZE} bytes) is larger than partition (${MAX_ROOTFS_SIZE} bytes)"
+        echo "⚠ Truncating rootfs - this may cause issues"
+    fi
+
+    if dd if="${IMAGES_DIR}/rootfs.ext2" of="${AB_IMAGE}" bs=512 seek=${ROOTFS_A_START} conv=notrunc 2>/dev/null; then
         echo "✓ RootFS A copied successfully"
     fi
-    if dd if="${IMAGES_DIR}/rootfs.ext2" of="${AB_IMAGE}" bs=512 seek=$((2048 + BOOT_SIZE_SECTORS + ROOTFS_SIZE_SECTORS)) conv=notrunc 2>/dev/null; then
+    if dd if="${IMAGES_DIR}/rootfs.ext2" of="${AB_IMAGE}" bs=512 seek=${ROOTFS_B_START} conv=notrunc 2>/dev/null; then
         echo "✓ RootFS B copied successfully"
     fi
 else

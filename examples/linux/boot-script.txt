@@ -1,0 +1,22 @@
+# U-Boot script to automatically boot from single partition
+# This will be converted to a U-Boot script and placed on the boot partition
+
+setenv kernel_addr_r 0x40080000
+setenv fdt_addr_r 0x47000000
+setenv ramdisk_addr_r 0x48000000
+
+echo "Golioth: Starting single-partition boot sequence"
+virtio scan
+
+echo "Golioth: Loading kernel from boot partition"
+if fatload virtio 0:1 ${kernel_addr_r} Image; then
+    echo "Golioth: Kernel loaded successfully"
+
+    echo "Golioth: Setting boot arguments"
+    setenv bootargs "root=/dev/vda2 rootwait console=ttyAMA0 rw"
+
+    echo "Golioth: Booting Linux kernel"
+    booti ${kernel_addr_r} - ${fdtcontroladdr}
+else
+    echo "Golioth: Failed to load kernel, dropping to prompt"
+fi

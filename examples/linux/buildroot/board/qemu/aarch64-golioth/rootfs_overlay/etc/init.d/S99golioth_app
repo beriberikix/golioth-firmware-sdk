@@ -26,6 +26,17 @@ start() {
         return 1
     fi
 
+    # Ensure SWUpdate is running (required for Multi-Version OTA)
+    if ! /etc/init.d/S80swupdate status >/dev/null 2>&1; then
+        printf "\nStarting SWUpdate (required for OTA): "
+        /etc/init.d/S80swupdate start
+        if [ $? -ne 0 ]; then
+            echo "FAILED"
+            echo "Error: Could not start SWUpdate service"
+            return 1
+        fi
+    fi
+
     # Check if credentials are set
     if [ -z "$GOLIOTH_SAMPLE_PSK_ID" ] || [ -z "$GOLIOTH_SAMPLE_PSK" ]; then
         echo "FAILED"
